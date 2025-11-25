@@ -1,0 +1,382 @@
+import React, { useState, useEffect } from 'react';
+import { Monitor, Server, Activity, AlertTriangle, Globe, Layout, FileText, Zap, User, Trophy, Clock, CheckCircle } from 'lucide-react';
+
+const ZabbixGame = () => {
+  const [view, setView] = useState('menu'); // menu, register, game, leaderboard, board
+  const [player, setPlayer] = useState(null);
+  const [currentLevel, setCurrentLevel] = useState(1);
+  const [score, setScore] = useState(0);
+  const [timeLeft, setTimeLeft] = useState(60);
+  const [players, setPlayers] = useState([]);
+  const [gameActive, setGameActive] = useState(false);
+  const [draggedItem, setDraggedItem] = useState(null);
+  const [completedSteps, setCompletedSteps] = useState([]);
+
+  const avatars = ['👨‍💻', '👩‍💻', '🦸‍♂️', '🦸‍♀️', '🧙‍♂️', '🧙‍♀️', '🥷', '🤖'];
+
+  const levels = [
+    { id: 1, name: 'Déploiement VM', icon: Server, color: 'bg-blue-500', tasks: ['VM Linux', 'VM Windows', 'Docker Container'] },
+    { id: 2, name: 'Installation Agent', icon: Activity, color: 'bg-green-500', tasks: ['Agent Zabbix', 'Config Agent', 'Test Connexion'] },
+    { id: 3, name: 'Configuration Host', icon: Monitor, color: 'bg-purple-500', tasks: ['Ajouter Host', 'IP/DNS', 'Port Config'] },
+    { id: 4, name: 'Création Items', icon: FileText, color: 'bg-yellow-500', tasks: ['CPU Item', 'RAM Item', 'Disk Item'] },
+    { id: 5, name: 'Setup Triggers', icon: AlertTriangle, color: 'bg-red-500', tasks: ['CPU Alert', 'Memory Alert', 'Disk Alert'] },
+    { id: 6, name: 'Config Alertes', icon: Zap, color: 'bg-orange-500', tasks: ['Email Action', 'SMS Action', 'Webhook'] },
+    { id: 7, name: 'Build Dashboard', icon: Layout, color: 'bg-pink-500', tasks: ['Widget CPU', 'Widget RAM', 'Graph Network'] },
+    { id: 8, name: 'Network Mapping', icon: Globe, color: 'bg-cyan-500', tasks: ['Map Nodes', 'Liens Réseau', 'Topology'] },
+    { id: 9, name: 'Application Template', icon: CheckCircle, color: 'bg-indigo-500', tasks: ['Import Template', 'Link Host', 'Verify Items'] },
+    { id: 10, name: 'Incident Response', icon: AlertTriangle, color: 'bg-red-700', tasks: ['Détecter', 'Analyser', 'Résoudre'] }
+  ];
+
+  useEffect(() => {
+    if (gameActive && timeLeft > 0) {
+      const timer = setTimeout(() => setTimeLeft(timeLeft - 1), 1000);
+      return () => clearTimeout(timer);
+    } else if (timeLeft === 0 && gameActive) {
+      endLevel();
+    }
+  }, [timeLeft, gameActive]);
+
+  const generateQRCode = () => {
+    const gameUrl = window.location.href;
+    return `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(gameUrl)}`;
+  };
+
+  const registerPlayer = (name, avatar) => {
+    const newPlayer = { 
+      id: Date.now(), 
+      name, 
+      avatar, 
+      score: 0, 
+      level: 1,
+      completedLevels: []
+    };
+    setPlayer(newPlayer);
+    setPlayers(prev => [...prev, newPlayer]);
+    setView('game');
+  };
+
+  const startLevel = () => {
+    setGameActive(true);
+    setTimeLeft(60);
+    setCompletedSteps([]);
+  };
+
+  const handleDrop = (task) => {
+    if (draggedItem === task && !completedSteps.includes(task)) {
+      setCompletedSteps(prev => [...prev, task]);
+      const points = Math.floor(timeLeft * 10);
+      setScore(prev => prev + points);
+      
+      if (completedSteps.length + 1 === levels[currentLevel - 1].tasks.length) {
+        setTimeout(() => endLevel(), 500);
+      }
+    }
+    setDraggedItem(null);
+  };
+
+  const endLevel = () => {
+    setGameActive(false);
+    const bonusPoints = timeLeft > 0 ? timeLeft * 50 : 0;
+    const finalScore = score + bonusPoints;
+    setScore(finalScore);
+    
+    const updatedPlayer = {
+      ...player,
+      score: finalScore,
+      level: currentLevel,
+      completedLevels: [...player.completedLevels, currentLevel]
+    };
+    setPlayer(updatedPlayer);
+    setPlayers(prev => prev.map(p => p.id === player.id ? updatedPlayer : p));
+    
+    if (currentLevel < 10) {
+      setTimeout(() => {
+        setCurrentLevel(prev => prev + 1);
+        setView('game');
+      }, 2000);
+    } else {
+      setView('leaderboard');
+    }
+  };
+
+  const sortedPlayers = [...players].sort((a, b) => b.score - a.score);
+
+  if (view === 'menu') {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-gray-900 via-blue-900 to-purple-900 flex items-center justify-center p-4">
+        <div className="max-w-2xl w-full bg-gray-800/90 backdrop-blur rounded-2xl shadow-2xl p-8 text-white">
+          <div className="text-center mb-8">
+            <div className="flex justify-center gap-4 mb-4">
+              <Server className="w-16 h-16 text-blue-400" />
+              <Monitor className="w-16 h-16 text-green-400" />
+            </div>
+            <h1 className="text-5xl font-bold mb-2 bg-gradient-to-r from-blue-400 to-green-400 bg-clip-text text-transparent">
+              Zabbix Master
+            </h1>
+            <p className="text-xl text-gray-300">Supervision & Infrastructure Game</p>
+          </div>
+          
+          <div className="space-y-4">
+            <button
+              onClick={() => setView('register')}
+              className="w-full bg-gradient-to-r from-blue-500 to-green-500 hover:from-blue-600 hover:to-green-600 text-white font-bold py-4 px-6 rounded-xl transition transform hover:scale-105 text-lg"
+            >
+              🎮 Jouer sur Mobile
+            </button>
+            <button
+              onClick={() => setView('board')}
+              className="w-full bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white font-bold py-4 px-6 rounded-xl transition transform hover:scale-105 text-lg"
+            >
+              📊 Affichage Tableau
+            </button>
+          </div>
+
+          <div className="mt-8 p-4 bg-gray-700/50 rounded-xl text-center">
+            <p className="text-sm text-gray-300 mb-2">Scannez pour rejoindre:</p>
+            <img src={generateQRCode()} alt="QR Code" className="mx-auto rounded-lg" />
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (view === 'register') {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-gray-900 via-blue-900 to-purple-900 flex items-center justify-center p-4">
+        <div className="max-w-md w-full bg-gray-800/90 backdrop-blur rounded-2xl shadow-2xl p-8 text-white">
+          <h2 className="text-3xl font-bold mb-6 text-center">Créer ton Avatar</h2>
+          
+          <div className="mb-6">
+            <label className="block text-sm font-medium mb-2">Choisis ton avatar:</label>
+            <div className="grid grid-cols-4 gap-3">
+              {avatars.map((avatar, idx) => (
+                <button
+                  key={idx}
+                  onClick={() => {
+                    const name = prompt("Entre ton nom:");
+                    if (name) registerPlayer(name, avatar);
+                  }}
+                  className="bg-gray-700 hover:bg-gray-600 rounded-xl p-4 text-4xl transition transform hover:scale-110"
+                >
+                  {avatar}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <button
+            onClick={() => setView('menu')}
+            className="w-full bg-gray-700 hover:bg-gray-600 text-white font-bold py-3 px-6 rounded-xl transition"
+          >
+            ← Retour
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  if (view === 'board') {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-gray-900 via-blue-900 to-purple-900 p-8">
+        <div className="max-w-7xl mx-auto">
+          <div className="text-center mb-8">
+            <h1 className="text-6xl font-bold text-white mb-4">🏆 Classement en Direct</h1>
+            <p className="text-2xl text-gray-300">Zabbix Master Competition</p>
+          </div>
+
+          <div className="bg-gray-800/90 backdrop-blur rounded-2xl p-8">
+            {sortedPlayers.length === 0 ? (
+              <div className="text-center text-gray-400 text-2xl py-12">
+                En attente des joueurs...
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {sortedPlayers.map((p, idx) => (
+                  <div
+                    key={p.id}
+                    className={`flex items-center justify-between p-6 rounded-xl transition ${
+                      idx === 0 ? 'bg-gradient-to-r from-yellow-500/20 to-orange-500/20 border-2 border-yellow-500' :
+                      idx === 1 ? 'bg-gradient-to-r from-gray-400/20 to-gray-500/20 border-2 border-gray-400' :
+                      idx === 2 ? 'bg-gradient-to-r from-orange-700/20 to-orange-800/20 border-2 border-orange-700' :
+                      'bg-gray-700/50'
+                    }`}
+                  >
+                    <div className="flex items-center gap-6">
+                      <div className={`text-5xl font-bold ${
+                        idx === 0 ? 'text-yellow-400' :
+                        idx === 1 ? 'text-gray-400' :
+                        idx === 2 ? 'text-orange-700' :
+                        'text-gray-500'
+                      }`}>
+                        #{idx + 1}
+                      </div>
+                      <div className="text-6xl">{p.avatar}</div>
+                      <div>
+                        <div className="text-3xl font-bold text-white">{p.name}</div>
+                        <div className="text-xl text-gray-400">Niveau {p.level}</div>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <div className="text-4xl font-bold text-green-400">{p.score}</div>
+                      <div className="text-xl text-gray-400">points</div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          <button
+            onClick={() => setView('menu')}
+            className="mt-8 w-full bg-gray-700 hover:bg-gray-600 text-white font-bold py-4 px-6 rounded-xl transition text-xl"
+          >
+            ← Retour au Menu
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  if (view === 'game' && player) {
+    const level = levels[currentLevel - 1];
+    const LevelIcon = level.icon;
+
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-gray-900 via-blue-900 to-purple-900 p-4">
+        <div className="max-w-md mx-auto">
+          {/* Header */}
+          <div className="bg-gray-800/90 backdrop-blur rounded-xl p-4 mb-4 text-white">
+            <div className="flex items-center justify-between mb-2">
+              <div className="flex items-center gap-2">
+                <span className="text-3xl">{player.avatar}</span>
+                <span className="font-bold">{player.name}</span>
+              </div>
+              <div className="flex items-center gap-2 text-2xl font-bold text-green-400">
+                <Trophy className="w-6 h-6" />
+                {score}
+              </div>
+            </div>
+            <div className="flex items-center justify-between text-sm">
+              <span>Niveau {currentLevel}/10</span>
+              <div className="flex items-center gap-2">
+                <Clock className="w-4 h-4" />
+                <span className={timeLeft < 20 ? 'text-red-400 font-bold' : ''}>{timeLeft}s</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Level Info */}
+          <div className={`${level.color} rounded-xl p-6 mb-4 text-white text-center`}>
+            <LevelIcon className="w-12 h-12 mx-auto mb-2" />
+            <h2 className="text-2xl font-bold">{level.name}</h2>
+          </div>
+
+          {!gameActive ? (
+            <div className="bg-gray-800/90 backdrop-blur rounded-xl p-8 text-center">
+              <p className="text-white text-xl mb-6">Glisse-dépose les composants dans le bon ordre!</p>
+              <button
+                onClick={startLevel}
+                className="bg-gradient-to-r from-green-500 to-blue-500 hover:from-green-600 hover:to-blue-600 text-white font-bold py-4 px-8 rounded-xl transition transform hover:scale-105 text-lg"
+              >
+                🚀 Commencer
+              </button>
+            </div>
+          ) : (
+            <>
+              {/* Drop Zone */}
+              <div className="bg-gray-800/90 backdrop-blur rounded-xl p-6 mb-4">
+                <h3 className="text-white font-bold mb-4 text-center">Zone de Configuration</h3>
+                <div className="space-y-3">
+                  {level.tasks.map((task, idx) => (
+                    <div
+                      key={idx}
+                      onDragOver={(e) => e.preventDefault()}
+                      onDrop={() => handleDrop(task)}
+                      className={`border-2 border-dashed rounded-lg p-4 text-center transition ${
+                        completedSteps.includes(task)
+                          ? 'bg-green-500/20 border-green-500'
+                          : 'border-gray-600 hover:border-blue-400'
+                      }`}
+                    >
+                      {completedSteps.includes(task) ? (
+                        <div className="flex items-center justify-center gap-2 text-green-400 font-bold">
+                          <CheckCircle className="w-5 h-5" />
+                          {task} ✓
+                        </div>
+                      ) : (
+                        <span className="text-gray-400">Dépose {task} ici</span>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Draggable Items */}
+              <div className="bg-gray-800/90 backdrop-blur rounded-xl p-6">
+                <h3 className="text-white font-bold mb-4 text-center">Composants</h3>
+                <div className="grid grid-cols-1 gap-3">
+                  {level.tasks.filter(t => !completedSteps.includes(t)).map((task, idx) => (
+                    <div
+                      key={idx}
+                      draggable
+                      onDragStart={() => setDraggedItem(task)}
+                      className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-4 rounded-lg cursor-move transition transform hover:scale-105 text-center"
+                    >
+                      🔧 {task}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  if (view === 'leaderboard') {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-gray-900 via-blue-900 to-purple-900 flex items-center justify-center p-4">
+        <div className="max-w-md w-full bg-gray-800/90 backdrop-blur rounded-2xl shadow-2xl p-8 text-white">
+          <div className="text-center mb-6">
+            <Trophy className="w-20 h-20 mx-auto text-yellow-400 mb-4" />
+            <h2 className="text-4xl font-bold mb-2">Partie Terminée!</h2>
+            <p className="text-2xl text-green-400">Score: {player.score}</p>
+          </div>
+
+          <div className="bg-gray-700/50 rounded-xl p-4 mb-6">
+            <h3 className="font-bold text-xl mb-3 text-center">Classement Final</h3>
+            {sortedPlayers.slice(0, 5).map((p, idx) => (
+              <div key={p.id} className={`flex items-center justify-between p-3 rounded-lg mb-2 ${
+                p.id === player.id ? 'bg-blue-600' : 'bg-gray-600'
+              }`}>
+                <div className="flex items-center gap-3">
+                  <span className="text-2xl font-bold">#{idx + 1}</span>
+                  <span className="text-2xl">{p.avatar}</span>
+                  <span className="font-bold">{p.name}</span>
+                </div>
+                <span className="text-xl font-bold text-green-400">{p.score}</span>
+              </div>
+            ))}
+          </div>
+
+          <button
+            onClick={() => {
+              setView('menu');
+              setPlayer(null);
+              setCurrentLevel(1);
+              setScore(0);
+            }}
+            className="w-full bg-gradient-to-r from-blue-500 to-green-500 hover:from-blue-600 hover:to-green-600 text-white font-bold py-4 px-6 rounded-xl transition transform hover:scale-105"
+          >
+            🎮 Rejouer
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  return null;
+};
+
+export default ZabbixGame;
